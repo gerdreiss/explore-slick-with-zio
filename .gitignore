@@ -1,0 +1,10 @@
+
+.bloop/
+.bsp/
+.idea/
+.metals/
+.parcel-cache/
+.vscode/
+dist/
+target/
+metals.sbt
