@@ -1,15 +1,12 @@
 import slick.jdbc.PostgresProfile.profile.api._
-import zio.App
-import zio.ExitCode
+import zio.Console
+import zio.Scope
 import zio.URIO
 import zio.ZIO
-import zio.console.putStrLn
+import zio.ZIOAppArgs
+import zio.ZIOAppDefault
 
 import java.time.LocalDate
-import java.util.concurrent.Executors
-import scala.concurrent.ExecutionContext
-import scala.util.Failure
-import scala.util.Success
 
 object Connection {
   val db = Database.forConfig("postgres")
@@ -31,7 +28,7 @@ object Tables {
   lazy val movieTable = TableQuery[MovieTable]
 }
 
-object Main extends App {
+object Main extends ZIOAppDefault {
 
   val shawshank = Model.Movie(1, "The Shawshank Redemption", LocalDate.parse("1994-10-14"), 142)
   val matrix    = Model.Movie(2, "The Matrix", LocalDate.parse("1999-03-31"), 136)
@@ -59,20 +56,19 @@ object Main extends App {
       Connection.db.run(Tables.movieTable.filter(_.id === id).map(_.lengthInMin).update(length))
     )
 
-  def program =
+  override def run: ZIO[Environment with ZIOAppArgs with Scope, Any, Any] =
     for {
       _       <- removeAllMovies
       _       <- insertMovie(shawshank)
       _       <- insertMovie(matrix)
       _       <- insertMovie(inception)
       movies  <- getAllMovies
-      _       <- putStrLn(s"Movies:\n${movies.mkString("\n")}")
+      _       <- Console.printLine(s"Movies:\n${movies.mkString("\n")}")
       movie   <- findMovieByTitle("Matrix")
-      _       <- putStrLn(s"Found by title:\n${movie.headOption}")
+      _       <- Console.printLine(s"Found by title:\n${movie.headOption}")
       _       <- updateLength(movies.head.id, movies.head.lengthInMin * 2)
       updated <- getMovieById(movies.head.id)
-      _       <- putStrLn(s"Found updated:\n${updated.headOption}")
-    } yield ExitCode.success
+      _       <- Console.printLine(s"Found updated:\n${updated.headOption}")
+    } yield ()
 
-  def run(args: List[String]) = program.orDie
 }
