@@ -258,23 +258,21 @@ object Main extends ZIOAppDefault {
       actors <- getAllActors
       _      <- Console.printLine(s"Actors:${actors.mkString("\n - ", "\n - ", "")}")
 
-      movie <- findMovieByTitle("Matrix")
-      _     <- Console.printLine(s"Found by title:\n - ${movie.headOption.getOrElse("")}")
-      // _       <- updateLength(movies.head.id, movies.head.lengthInMin * 2)
-      // updated <- getMovieById(movies.head.id)
-      // _       <- Console.printLine(s"Found updated:\n${updated.headOption}")
-      // movies <- findMoviesByPlainQuery
-      // _      <- Console.printLine(s"Found by plain query:${movies.mkString("\n - ", "\n - ", "")}")
+      movie   <- findMovieByTitle("Matrix")
+      _       <- Console.printLine(s"Found by title:\n - ${movie.headOption.getOrElse("")}")
+      _       <- updateLength(movies.head.id, movies.head.lengthInMin * 2)
+      updated <- getMovieById(movies.head.id)
+      _       <- Console.printLine(s"Found updated:\n - ${updated.headOption.getOrElse("")}")
+      movies  <- findMoviesByPlainQuery
+      _       <- Console.printLine(s"Found by plain query:${movies.mkString("\n - ", "\n - ", "")}")
 
       movie = movies.last
 
-      _ <- Console.printLine(s"Looking for actors who played in the $movie...")
-
+      _      <- Console.printLine(s"Looking for actors who played in the $movie...")
       actors <- findActorsByMovie(movie)
       _      <- Console.printLine(s"Found ${actors.mkString("\n - ", "\n - ", "")}")
 
-      _ <- Console.printLine(s"Looking for service providers for $movie...")
-
+      _         <- Console.printLine(s"Looking for service providers for $movie...")
       providers <- findStreamingProvidersByMovie(movie)
       _         <- Console.printLine(s"Found ${providers.mkString("\n - ", "\n - ", "")}")
 
