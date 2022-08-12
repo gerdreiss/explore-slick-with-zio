@@ -1,89 +1,80 @@
-import slick.jdbc.PostgresProfile.profile.api._
-import zio.{Tag => _, _}
-import java.time.LocalDate
 import slick.jdbc.GetResult
-import slick.ast.BaseTypedType
-import slick.jdbc.JdbcType
-import java.util.UUID
+import slick.jdbc.PostgresProfile.api._
+import zio.{Tag => _, _}
+
+import java.time.LocalDate
 
 object Repo {
 
   import Model._
-  import ORM._
 
   object Connection {
     val db = Database.forConfig("postgres")
   }
 
-  def removeAll =
+  /*
+   * delete all data from table
+   */
+
+  def removeAll(): Task[Unit] =
     ZIO.fromFuture { implicit ec =>
       Connection.db.run(
         DBIO.seq(
-          ORM.movieStreamingProviderMappingTable.delete,
-          ORM.movieActorMappingTable.delete,
           ORM.movieTable.delete,
-          ORM.actorTable.delete
+          ORM.actorTable.delete,
+          ORM.movieActorMappingTable.delete,
+          ORM.movieStreamingProviderMappingTable.delete,
+          ORM.movieLocationsTable.delete,
+          ORM.moviePropertiesTable.delete,
+          ORM.actorDetailsTable.delete
         )
       )
     }
 
-  def insertMovies(movies: Movie*) =
+  /*
+   * INSERTS
+   */
+
+  def insertMovies(movies: Movie*): Task[Option[Int]] =
     ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieTable ++= movies))
 
-  def insertMovie(movie: Movie) =
-    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieTable += movie))
-
-  def insertActors(actors: Actor*) =
+  def insertActors(actors: Actor*): Task[Option[Int]] =
     ZIO.fromFuture(implicit ec => Connection.db.run(ORM.actorTable ++= actors))
 
-  def insertActor(actor: Actor) =
-    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.actorTable += actor))
+  def insertMovieActorMappings(mappings: MovieActorMapping*): Task[Option[Int]] =
+    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieActorMappingTable ++= mappings))
 
-  def insertStreamProvider(streamingProvider: MovieStreamingProviderMapping) =
-    ZIO.fromFuture(implicit ec =>
-      Connection.db.run(ORM.movieStreamingProviderMappingTable += streamingProvider)
-    )
-
-  def insertStreamProviders(streamingProviders: MovieStreamingProviderMapping*) =
+  def insertStreamProviders(streamingProviders: MovieStreamingProviderMapping*): Task[Option[Int]] =
     ZIO.fromFuture(implicit ec =>
       Connection.db.run(ORM.movieStreamingProviderMappingTable ++= streamingProviders)
     )
 
-  def insertMovieAndActors(movie: Movie, actors: Actor*) =
-    ZIO.fromFuture { implicit ec =>
-      Connection.db.run(
-        DBIO.seq(
-          ORM.movieTable += movie,
-          ORM.actorTable ++= actors,
-          ORM.movieActorMappingTable ++= actors.map(actor =>
-            MovieActorMapping(
-              UUID.randomUUID().hashCode(), // should be hopefully mostly unique
-              movie.id,
-              actor.id
-            )
-          )
-        )
-      )
-    }
+  def insertMovieLocations(movieLocations: MovieLocations*): Task[Option[Int]] =
+    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieLocationsTable ++= movieLocations))
 
-  def insertMovieAndStreamingProvider(
-      movie: Movie,
-      streamingProviders: StreamingService.Provider*
-  ) =
-    ZIO.fromFuture { implicit ec =>
+  def insertMovieProperties(movieProperties: MovieProperties*): Task[Option[Int]] =
+    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.moviePropertiesTable ++= movieProperties))
+
+  def insertActorDetails(actorDetails: ActorDetails*): Task[Option[Int]] =
+    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.actorDetailsTable ++= actorDetails))
+
+  /*
+   * UPDATES
+   */
+
+  def updateLength(id: Long, length: Int): Task[Int] =
+    ZIO.fromFuture(implicit ec =>
       Connection.db.run(
-        DBIO.seq(
-          ORM.movieTable += movie,
-          ORM.movieStreamingProviderMappingTable ++= streamingProviders.map(streamingProvider =>
-            MovieStreamingProviderMapping(
-              UUID.randomUUID().hashCode(), // should be hopefully mostly unique
-              movie.id,
-              streamingProvider
-            )
-          )
-        )
+        ORM.movieTable
+          .filter(_.id === id)
+          .map(_.lengthInMin)
+          .update(length)
       )
-    }
+    )
+
+  /*
+   * QUERIES
+   */
 
   def getAllMovies: Task[Seq[Movie]] =
     ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieTable.result))
@@ -91,18 +82,12 @@ object Repo {
   def getAllActors: Task[Seq[Actor]] =
     ZIO.fromFuture(implicit ec => Connection.db.run(ORM.actorTable.result))
 
-  def getMovieById(id: Long): Task[Seq[Movie]] =
-    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.movieTable.filter(_.id === id).result))
-
-  def getActorById(id: Long): Task[Seq[Actor]] =
-    ZIO.fromFuture(implicit ec => Connection.db.run(ORM.actorTable.filter(_.id === id).result))
-
-  def findMovieByTitle(title: String) =
+  def findMovieByTitle(title: String): Task[Seq[Movie]] =
     ZIO.fromFuture(implicit ec =>
       Connection.db.run(ORM.movieTable.filter(_.name.like(s"%$title%")).result)
     )
 
-  def findMoviesByPlainQuery = {
+  def findMoviesByPlainQuery: Task[Vector[Movie]] = {
     implicit val GRM: GetResult[Movie] =
       GetResult(r => Movie(r.<<, r.<<, LocalDate.parse(r.nextString()), r.<<))
 
@@ -113,17 +98,7 @@ object Repo {
     )
   }
 
-  def updateLength(id: Long, length: Int) =
-    ZIO.fromFuture(implicit ec =>
-      Connection.db.run(
-        ORM.movieTable
-          .filter(_.id === id)
-          .map(_.lengthInMin)
-          .update(length)
-      )
-    )
-
-  def findActorsByMovie(movie: Movie) =
+  def findActorsByMovie(movie: Movie): Task[Seq[Actor]] =
     ZIO.fromFuture { implicit ec =>
       Connection.db.run(
         ORM.movieActorMappingTable
@@ -135,11 +110,30 @@ object Repo {
       )
     }
 
-  def findStreamingProvidersByMovie(movie: Movie) =
+  def findStreamingProvidersByMovie(movie: Movie): Task[Seq[MovieStreamingProviderMapping]] =
     ZIO.fromFuture { implicit ec =>
       Connection.db.run(
         ORM.movieStreamingProviderMappingTable
           .filter(_.movieId === movie.id)
+          // TODO: .map(_.streamingProvider)
+          .result
+      )
+    }
+
+  def findLocationsByMovie(movie: Movie): Task[Seq[MovieLocations]] =
+    ZIO.fromFuture { implicit ec =>
+      Connection.db.run(
+        ORM.movieLocationsTable
+          .filter(_.movieId === movie.id)
+          .result
+      )
+    }
+
+  def findActorDetails(actor: Actor): Task[Seq[ActorDetails]] =
+    ZIO.fromFuture { implicit ec =>
+      Connection.db.run(
+        ORM.actorDetailsTable
+          .filter(_.actorId === actor.id)
           .result
       )
     }

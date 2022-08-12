@@ -1,10 +1,7 @@
-import slick.jdbc.PostgresProfile.profile.api._
-import zio.{Tag => _, _}
+import play.api.libs.json.JsValue
+import zio.{Tag => _}
+
 import java.time.LocalDate
-import slick.jdbc.GetResult
-import slick.ast.BaseTypedType
-import slick.jdbc.JdbcType
-import java.util.UUID
 
 object Model {
 
@@ -14,6 +11,7 @@ object Model {
     val AmazonPrime = Value("AmazonPrime")
     val Hulu        = Value("Hulu")
     val DisneyPlus  = Value("DisneyPlus")
+    val HBO         = Value("HBO")
   }
 
   case class Movie(id: Long, name: String, releaseDate: LocalDate, lengthInMin: Int)
@@ -24,5 +22,9 @@ object Model {
       movieId: Long,
       streamingService: StreamingService.Provider
   )
+
+  case class MovieLocations(id: Long, movieId: Long, locations: List[String])
+  case class MovieProperties(id: Long, movieId: Long, properties: Map[String, String])
+  case class ActorDetails(id: Long, actorId: Long, details: JsValue)
 
 }
